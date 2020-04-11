@@ -1,3 +1,5 @@
+# Example Additional Knowledge File
+
 (not P_1_1)
 (not M_1_1)
 (not S_1_1)
