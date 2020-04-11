@@ -24,7 +24,7 @@
 #-------------------------------------------------------------------------------
 
 import sys
-from copy import copy
+from copy import copy, deepcopy
 
 #-------------------------------------------------------------------------------
 # Begin code that is ported from code provided by Dr. Athitsos
@@ -209,62 +209,69 @@ def pl_true(statement, model):
             return False
 
     elif statement.connective[0].lower() == 'not':
-        return not pl_true(statement.subexpressions[0], model)
+        if pl_true(statement.subexpressions[0], model):
+            return False
+        return True
 
     elif statement.connective[0].lower() == 'and':
-        result = True
         for expression in statement.subexpressions:
-            result = result and pl_true(expression, model)
-        return result
+            if pl_true(expression, model) == False:
+                return False
+        return True
 
     elif statement.connective[0].lower() == 'or':
-        result = False
         for expression in statement.subexpressions:
-            result = result or pl_true(expression, model)
-        return result
+            if pl_true(expression, model) == True:
+                return True
+        return False
 
     elif statement.connective[0].lower() == 'xor':
-        result = False
-        for expression in statement.subexpressions:
-            value = pl_true(expression, model)
-            result = (not result and value) or (result and not value)
-        return result
+        number_of_symbols = 0
+        for child in statement.subexpressions:
+            if pl_true(child, model) == True:
+                number_of_symbols = number_of_symbols + 1
+        if number_of_symbols == 1:
+            return True
+        else:
+            return False
+    
+    else:
+        print_expression(statement, " ")
+        print("Error\n")
 
-def extend(model, symbol, value):
-    model[symbol] = value
-    return model
+def extend(model, var, val):
+    model_copy = model.copy()
+    model_copy[var] = val
+    return model_copy
 
 def tt_check_all(knowledge_base, statement, symbols, model):
-    if len(symbols) == 0:
+    if len(symbols) == 0: 
         if pl_true(knowledge_base, model):
-            print("True")
             return pl_true(statement, model)
         else:
             return True
 
-    P = symbols.pop(0)
-    return tt_check_all(knowledge_base, statement, symbols, extend(model, P, True)) and tt_check_all(knowledge_base, statement, symbols, extend(model, P, False))
-
-def tt_entails(knowledge_base, statement):
-    symbols           = all_symbols(knowledge_base)
-    statement_symbols = all_symbols(statement)
-    model             = current_model(knowledge_base)
-
-    symbols = symbols + list(set(statement_symbols) - set(symbols))
+    P, rest = symbols[0], symbols[1:]
     
-    for symbol in model:
-        if symbol in symbols:
-            symbols.remove(symbol)
+    return tt_check_all(knowledge_base, statement, rest, extend(model, P, True)) and tt_check_all(knowledge_base, statement, rest, extend(model, P, False))
+
+def tt_entails(knowledge_base, statement, symbols, model):
 
     return tt_check_all(knowledge_base, statement, symbols, model)
 
 def check_true_false(knowledge_base, statement):
-    check_statement = tt_entails(knowledge_base, statement)
+    symbols           = all_symbols(knowledge_base)
+    model             = current_model(knowledge_base)
+    for symbol in model:
+        if symbol in symbols:
+            symbols.remove(symbol)
+
+    check_statement = tt_entails(knowledge_base, statement, symbols[:], deepcopy(model))
 
     negation = logical_expression()
     negation.connective[0] = 'not'
-    negation.subexpressions.append(statement)
-    check_negation = tt_entails(knowledge_base, negation)
+    negation.subexpressions.append(statement) 
+    check_negation = tt_entails(knowledge_base, negation, symbols[:], deepcopy(model))
 
     file = open("result.txt", "w")
     if check_statement and not check_negation:
